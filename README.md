@@ -1,22 +1,34 @@
 # Vue + vue-uquery vs. React + react-query — bundle size
 
 Two functionally identical stub TODO apps (list view + detail view, a query, an
-add mutation, and an optimistic toggle mutation), built with the **same toolchain**
-(Vite 6 + esbuild minify, single chunk, production mode) so the only variable is
-the framework stack.
+add mutation, and an **optimistic toggle mutation with rollback**), built with the
+**same toolchain** (Vite 8 / Rolldown + Oxc minify, single chunk, production mode)
+so the only variable is the framework stack.
 
 ## Results
 
-Bundled application JS (one chunk, `kB = 1000 bytes`):
+Bundled application JS (one chunk, `kB = 1000 bytes`, gzip = `gzip -9`):
 
 | Stack | Raw | Gzip | Brotli |
 |---|---:|---:|---:|
-| **Vue 3** + vue-router 4 + @dts/vue-uquery | 105.9 kB | **40.8 kB** | 36.9 kB |
-| **Vue 3** + vue-router 5 + @dts/vue-uquery | 103.6 kB | **40.2 kB** | 36.4 kB |
-| **React 19** + react-router 7 + @tanstack/react-query | 331.0 kB | **104.4 kB** | 90.9 kB |
+| **Vue 3** + vue-router 5 + @dts/vue-uquery | 100.1 kB | **38.0 kB** | 34.5 kB |
+| **React 19** + react-router 7 + @tanstack/react-query | 322.7 kB | **100.2 kB** | 87.1 kB |
 
-**The React stack ships ~2.6× the gzipped JS of the Vue stack** (~104 kB vs ~41 kB
-gzip; ~3.1× raw). Choice of vue-router 4 vs 5 is within noise (~0.6 kB gzip).
+**The React stack ships ~2.6× the gzipped JS of the Vue stack** (~100 kB vs ~38 kB
+gzip; ~3.2× raw).
+
+### Optimistic updates + rollback
+
+Both toggle mutations are optimistic and roll back on failure — the difference is
+in the API, not the feature:
+
+- **react-query** — explicit: `onMutate` cancels in-flight queries, snapshots the
+  previous cache, optimistically `setQueryData`; `onError` restores the snapshot.
+- **vue-uquery** — `onMutate` opens a `patchEach` draft and mutates it in place;
+  the library **auto-commits on success and auto-reverts on error**, so there is no
+  hand-written rollback path.
+
+See `react-app/src/views/TodoList.jsx` and `vue-app/src/views/TodoList.vue`.
 
 ### Per-library size (reference only)
 
@@ -41,13 +53,12 @@ sense of weight.
 
 ## Notes on fairness
 
-- **Same build pipeline** for both: Vite 6, esbuild minifier, `manualChunks:
-  undefined` (one file), production mode.
+- **Same build pipeline** for both: Vite 8 (Rolldown) with the default Oxc
+  minifier, `manualChunks: undefined` (one file), production mode.
 - **vue-router 5** is the current `latest`. Its Pinia / `@pinia/colada` peer deps
-  are `peerOptional` — they are **not** pulled into the bundle (the v5 build is
-  actually marginally *smaller* than v4). Both are shown above.
+  are `peerOptional` — they are **not** pulled into the bundle.
 - **Equivalent features** on both sides: 2 routes, a list query, a detail query,
-  an invalidating add-mutation, and an optimistic toggle (cache patch + rollback).
+  an invalidating add-mutation, and an optimistic toggle with rollback.
 - React Router 7 is used in library/`createBrowserRouter` mode (no framework /
   SSR runtime).
 
@@ -56,19 +67,20 @@ sense of weight.
 | | version |
 |---|---|
 | vue | 3.5.38 |
-| vue-router | 4.6.4 / 5.1.0 |
+| vue-router | 5.1.0 |
 | @dts/vue-uquery | 0.1.6 |
 | react / react-dom | 19.2.7 |
 | react-router-dom | 7.18.0 |
 | @tanstack/react-query | 5.101.0 |
-| vite | 6.x |
+| vite | 8.0.16 |
+| @vitejs/plugin-vue | 6.0.7 |
+| @vitejs/plugin-react | 6.0.2 |
 
 ## Reproduce
 
 ```bash
-cd vue-app        && npm install && npx vite build   # vue-router 4
-cd vue-app-router5 && npm install --legacy-peer-deps && npx vite build  # vue-router 5
-cd react-app      && npm install && npx vite build
+cd vue-app   && npm install && npx vite build
+cd react-app && npm install && npx vite build
 ```
 
 Built JS lands in each app's `dist/assets/*.js`. Measure with:

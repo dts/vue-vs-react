@@ -4,7 +4,7 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   plugins: [vue()],
   build: {
-    minify: 'esbuild',
+    // Vite 8 (Rolldown) default minifier is Oxc; applied equally to all apps.
     // single chunk so the comparison is apples-to-apples
     rollupOptions: {
       output: {
