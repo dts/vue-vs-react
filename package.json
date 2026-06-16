@@ -1,0 +1,24 @@
+{
+  "name": "vue-uquery-comparison",
+  "version": "1.0.0",
+  "description": "Two functionally identical stub TODO apps (list view + detail view, a query, an add mutation, and an **optimistic toggle mutation with rollback**), built with the **same toolchain** (Vite 8 / Rolldown + Oxc minify, single chunk, production mode) so the only variable is the framework stack.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dts/vue-vs-react.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/dts/vue-vs-react/issues"
+  },
+  "homepage": "https://github.com/dts/vue-vs-react#readme",
+  "devDependencies": {
+    "source-map-explorer": "^2.5.3"
+  }
+}

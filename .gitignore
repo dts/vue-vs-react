@@ -5,3 +5,6 @@ dist/
 _probe.js
 
 .claude/
+.output
+.next
+.nuxt
