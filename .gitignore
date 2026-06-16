@@ -8,3 +8,10 @@ _probe.js
 .output
 .next
 .nuxt
+
+# build outputs
+.next/
+.nuxt/
+.output/
+next-app/out/
+site/

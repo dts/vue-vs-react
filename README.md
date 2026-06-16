@@ -12,29 +12,40 @@ framework stack:
 | **nuxt-app** | Nuxt (vue-router 5) | @dts/vue-uquery | Nuxt 4 / Vite |
 | **next-app** | Next App Router | @tanstack/react-query | Next 16 |
 
-## Headline: total client JS shipped
+> 🔗 **Live demo** (click around all four): https://dts.github.io/vue-vs-react/
 
-Sum of **all** client JS chunks (`kB = 1000 bytes`; gzip = `gzip -9` of the
-concatenated chunks):
+## Headline: First Load JS for `/`
+
+What a **modern browser actually downloads** to render the home route (gzip; for
+the meta-frameworks this excludes the legacy `nomodule` polyfills and other route
+chunks):
 
 | App | Raw | Gzip | vs. Vue SPA |
 |---|---:|---:|---:|
-| **Vue SPA** (vue + vue-router + uquery) | 100.1 kB | **38.1 kB** | 1.0× |
-| **Nuxt** (vue + uquery) | 191.0 kB | **71.2 kB** | 1.9× |
-| **React SPA** (react + react-router + react-query) | 322.8 kB | **100.2 kB** | 2.6× |
-| **Next** (react + react-query) | 904.9 kB † | **274.1 kB** † | 7.2× |
+| **Vue SPA** | 100.1 kB | **38.1 kB** | 1.0× |
+| **Nuxt** | 182.6 kB | **69.0 kB** | 1.8× |
+| **React SPA** | 322.8 kB | **100.2 kB** | 2.6× |
+| **Next** | 435.3 kB | **127.5 kB** | 3.3× |
 
-> † Next numbers are from the **webpack** build, which emits complete vendor
-> sourcemaps (needed for the breakdown below). Next 16's **default Turbopack**
-> build is smaller — **691 kB raw / 201 kB gzip** total. Either way the
-> composition is the same: React-DOM + the Next client runtime dominate.
+The two SPAs ship a single chunk, so first-load *is* the whole app. The two
+meta-frameworks code-split; the numbers above are the entry + home-page chunks
+they request on first paint.
 
-**Caveats for an honest read:**
-- The two **SPAs** ship a single chunk — the headline *is* the first load.
-- The two **meta-frameworks** code-split per route and this total counts **every**
-  route chunk plus, for Next, a **113 kB legacy core-js polyfill** chunk that
-  modern (`type=module`) browsers don't download. So real first-load is lower than
-  the totals above — but the core runtime still loads on first paint.
+### Total client JS (all chunks, every route)
+
+For reference — sum of **all** emitted client chunks. Overstates first-load
+because it counts every route plus (for Next) the legacy polyfill chunk:
+
+| App | Raw | Gzip |
+|---|---:|---:|
+| Vue SPA | 100.1 kB | 38.1 kB |
+| Nuxt | 191.0 kB | 71.2 kB |
+| React SPA | 322.8 kB | 100.2 kB |
+| Next (webpack build) | 904.9 kB | 274.1 kB |
+
+> Next's **default Turbopack** build totals **691 kB raw / 201 kB gzip**; the
+> webpack build (905/274) is shown because it emits complete vendor sourcemaps for
+> the breakdown below. First-load is the same ~127 kB gzip either way.
 
 ## Per-app breakdown
 
@@ -65,7 +76,7 @@ pre-gzip bytes; share of mapped output). This is where the size actually goes.
 | @tanstack/react-query | 2.6 kB | 0.8% |
 | app code | 2.5 kB | 0.8% |
 
-### Nuxt — 191.0 kB raw
+### Nuxt — 191.0 kB raw (all chunks)
 
 | Package | Raw | Share | |
 |---|---:|---:|---|
@@ -82,16 +93,16 @@ pre-gzip bytes; share of mapped output). This is where the size actually goes.
 | **devalue** | 3.4 kB | 1.8% | payload (de)serialize |
 | **hookable** | 3.1 kB | 1.6% | plugin hooks |
 | app code | 2.4 kB | 1.3% | |
-| **h3 / unctx / destr / defu** | 4.6 kB | 2.5% | Nitro/runtime utils |
+| **h3 / unctx / destr / defu** | 4.6 kB | 2.5% | runtime utils |
 | nuxt/app glue | 1.1 kB | 0.6% | generated |
 
-### Next — 904.9 kB raw (webpack build; Turbopack default is smaller)
+### Next — 904.9 kB raw (all chunks, webpack build)
 
 | Package | Raw | Share | |
 |---|---:|---:|---|
-| **next** (client runtime) | 568.6 kB | 62.9% | App Router, segment cache, router reducer, hydration |
+| **next** (client runtime) | 568.6 kB | 62.9% | App Router, segment cache, router reducer, hydration, RSC payload |
 | react-dom | 178.4 kB | 19.7% | React core |
-| **polyfills (core-js)** | 112.6 kB | 12.5% | legacy browsers only |
+| **polyfills (core-js)** | 112.6 kB | 12.5% | **legacy browsers only — see below** |
 | @tanstack/query-core | 27.3 kB | 3.0% | data layer |
 | react | 7.8 kB | 0.9% | |
 | scheduler | 3.5 kB | 0.4% | |
@@ -99,27 +110,49 @@ pre-gzip bytes; share of mapped output). This is where the size actually goes.
 | @swc/helpers | 1.8 kB | 0.2% | |
 | @tanstack/react-query | 0.3 kB | 0.0% | |
 
-## Why is Nuxt ~2× a plain Vue SPA?
+## FAQ from reading the numbers
+
+### "Why is Nuxt ~2× a plain Vue SPA?"
 
 It is **not** loading "unnecessary" stuff — it's loading the SSR/hydration
-machinery that makes it a meta-framework, which a plain mount-into-a-div SPA
-simply doesn't have. The breakdown shows it directly:
+machinery that makes it a meta-framework, which a mount-into-a-div SPA doesn't
+have. The Vue-core + router + uquery portion is essentially the *same* as the SPA
+(`@vue/runtime-core` is only larger because Nuxt exercises Suspense / async
+components / hydration / Teleport that the SPA tree-shakes away). On top of that
+Nuxt adds ~70 kB raw (~30 kB gzip) the SPA has **zero** of: `nuxt` itself
+(NuxtLink/NuxtPage, plugins, **client hydration + payload revival**), `unhead`
+(head/meta), `devalue` (serialize the SSR payload), `ofetch` (`$fetch`),
+`hookable`, plus `ufo`/`h3`/`unctx`/`destr`/`defu`. That's the price of SSR +
+hydration + file-based routing. If you only need a client SPA, the plain Vue stack
+is ~half the size; if you want SSR/SEO/streaming, ~30 kB gzip buys it.
 
-- The **Vue-core + router + uquery** portion is essentially the *same* as the SPA
-  (the SPA's `@vue/*` + vue-router + uquery ≈ Nuxt's same packages). Nuxt's
-  `@vue/runtime-core` is a bit *larger* (53.7 kB vs 40.8 kB) only because Nuxt
-  exercises more of Vue's runtime — Suspense, async components, hydration,
-  Teleport — that the SPA tree-shakes away.
-- On top of that, Nuxt adds ~70 kB raw (~30 kB gzip) of framework runtime that
-  the SPA has **zero** of: `nuxt` itself (NuxtLink/NuxtPage, plugin system, error
-  handling, **client-side hydration + payload revival**), `unhead` (head/meta),
-  `devalue` (serialize the SSR payload), `ofetch` (`$fetch`), `hookable` (hooks),
-  plus `ufo`/`h3`/`unctx`/`destr`/`defu`.
+### "Are those 113 kB of legacy polyfills loaded in modern browsers?"
 
-That runtime is the price of SSR + hydration + file-based routing + the plugin
-ecosystem. Nuxt does code-split per route, but this core loads on first paint
-regardless. If you only need a client SPA, the plain Vue stack is ~half the size;
-if you want SSR/SEO/streaming, the extra ~30 kB gzip is buying you those.
+**No.** Next injects them as `<script src="…/polyfills-….js" noModule>`. Any
+browser that understands `<script type="module">` ignores `nomodule` scripts, so
+the core-js chunk is fetched *only* by browsers with no ES-module support
+(IE11-era). That's why the **First Load JS** table above excludes it — a modern
+browser never downloads those 113 kB.
+
+### "Is Next-core really that big, and people are just… fine with it?"
+
+The scary **569 kB "next"** in the breakdown is *raw, uncompressed, summed across
+every chunk* — not what loads on a page. The honest number is the **First Load JS
+for `/`: ~435 kB raw → 127.5 kB gzip**, of which the bulk is React-DOM plus the
+App Router client runtime (segment cache, prefetch, router reducer, RSC payload
+wiring). react-query and the app itself are a rounding error.
+
+And yes — broadly, people accept it, because:
+- It's **gzipped/brotli'd, code-split, and HTTP-cached**; after first load,
+  client navigations are cheap.
+- ~110–130 kB gzip is roughly the going rate for a React meta-framework, so it
+  doesn't stand out *within the React ecosystem*.
+- You're buying SSR/RSC/streaming/file-routing/image-opt, and most teams never
+  measure the baseline.
+
+But it is a **real, frequently-voiced criticism**: it's **3.3× the Vue SPA** and
+**1.8× the Nuxt** first-load here, and lighter stacks (this Vue/Nuxt one, or
+Solid/Qwik/Astro) exist substantially *because* of that React+Next floor.
 
 ## Optimistic updates + rollback
 
@@ -132,9 +165,6 @@ the API, not the feature:
 - **vue-uquery** (vue-app, nuxt-app) — `onMutate` opens a `patchEach` draft and
   mutates it in place; the library **auto-commits on success and auto-reverts on
   error**, so there is no hand-written rollback path.
-
-See `*/views/TodoList.*` (Vue/React SPA), `next-app/app/page.jsx`,
-`nuxt-app/app/pages/index.vue`.
 
 ## Versions
 
@@ -150,7 +180,7 @@ See `*/views/TodoList.*` (Vue/React SPA), `next-app/app/page.jsx`,
 | next | 16.2.9 |
 | vite | 8.0.16 (SPAs) |
 
-## Run any of the four apps
+## Run any of the four apps locally
 
 ```bash
 cd vue-app   && npm install && npm run dev     # http://localhost:5173
@@ -159,29 +189,13 @@ cd nuxt-app  && npm install && npm run dev      # http://localhost:3000
 cd next-app  && npm install && npm run dev      # http://localhost:3000
 ```
 
-Production build + preview (what the sizes above are measured from):
-
-```bash
-cd vue-app   && npm run build && npm run preview
-cd react-app && npm run build && npm run preview
-cd nuxt-app  && npm run build && npm run preview
-cd next-app  && npm run build && npm start
-```
-
 ## Reproduce the measurements
 
 ```bash
-# SPAs: single chunk in dist/assets
 cd vue-app && npm run build
-f=dist/assets/*.js; wc -c < $f; gzip -9 -c $f | wc -c
+f=dist/assets/*.js; wc -c < $f; gzip -9 -c $f | wc -c      # raw, gzip
 
-# meta-frameworks: sum all client chunks
-#   Next: .next/static/chunks/*.js   Nuxt: .output/public/_nuxt/*.js
-
-# per-package breakdown (uses source maps):
+# per-package breakdown via source maps (robust to Infinity-column maps
+# that newer minifiers emit, which trip up source-map-explorer):
 node analyze.mjs "<label>" '<app>/<glob to *.js>'
 ```
-
-`analyze.mjs` attributes every emitted byte to a package by walking the source
-maps (robust to the Infinity-column maps that newer minifiers emit, which trip up
-`source-map-explorer`).
