@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
+  // set to e.g. /vue-vs-react/react/ for GitHub Pages; '/' for local dev
+  base: process.env.DEPLOY_BASE || '/',
   plugins: [react()],
   build: {
     sourcemap: true,

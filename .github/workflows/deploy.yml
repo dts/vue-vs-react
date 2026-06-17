@@ -1,0 +1,89 @@
+name: Deploy 4 demo apps to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # --- Vue SPA (hash router, base /vue/) ---
+      - name: Build vue-app
+        working-directory: vue-app
+        env:
+          DEPLOY_BASE: /vue-vs-react/vue/
+          VITE_USE_HASH: '1'
+        run: |
+          npm install
+          npm run build
+
+      # --- React SPA (hash router, base /react/) ---
+      - name: Build react-app
+        working-directory: react-app
+        env:
+          DEPLOY_BASE: /vue-vs-react/react/
+          VITE_USE_HASH: '1'
+        run: |
+          npm install
+          npm run build
+
+      # --- Nuxt (SPA mode, base /nuxt/) ---
+      - name: Build nuxt-app
+        working-directory: nuxt-app
+        env:
+          NUXT_APP_BASE_URL: /vue-vs-react/nuxt/
+        run: |
+          npm install
+          npx nuxi generate
+
+      # --- Next (static export, base /next) ---
+      - name: Build next-app
+        working-directory: next-app
+        env:
+          NEXT_BASE_PATH: /vue-vs-react/next
+        run: |
+          npm install
+          npm run build
+
+      # --- Assemble combined site ---
+      - name: Assemble site
+        run: |
+          mkdir -p site/vue site/react site/nuxt site/next
+          cp deploy/index.html site/index.html
+          cp -r vue-app/dist/.            site/vue/
+          cp -r react-app/dist/.          site/react/
+          cp -r nuxt-app/.output/public/. site/nuxt/
+          cp -r next-app/out/.            site/next/
+          touch site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

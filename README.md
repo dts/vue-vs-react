@@ -9,8 +9,11 @@ framework stack:
 |---|---|---|---|
 | **vue-app** | vue-router 5 | @dts/vue-uquery | Vite 8 (Rolldown/Oxc) |
 | **react-app** | react-router 7 | @tanstack/react-query | Vite 8 (Rolldown/Oxc) |
-| **nuxt-app** | Nuxt (vue-router 5) | @dts/vue-uquery | Nuxt 4 / Vite |
-| **next-app** | Next App Router | @tanstack/react-query | Next 16 |
+| **nuxt-app** | Nuxt (vue-router 5) | @dts/vue-uquery | Nuxt 4 — **SPA mode** (`ssr:false`) |
+| **next-app** | Next App Router | @tanstack/react-query | Next 16 — **static export** (`output:'export'`) |
+
+Both meta-frameworks run **client-side / SPA-style** here (no Node server), so all
+four are directly comparable and deploy as static files.
 
 > 🔗 **Live demo** (click around all four): https://dts.github.io/vue-vs-react/
 
@@ -22,14 +25,14 @@ chunks):
 
 | App | Raw | Gzip | vs. Vue SPA |
 |---|---:|---:|---:|
-| **Vue SPA** | 100.1 kB | **38.1 kB** | 1.0× |
-| **Nuxt** | 182.6 kB | **69.0 kB** | 1.8× |
-| **React SPA** | 322.8 kB | **100.2 kB** | 2.6× |
-| **Next** | 435.3 kB | **127.5 kB** | 3.3× |
+| **Vue SPA** | 100.2 kB | **38.5 kB** | 1.0× |
+| **Nuxt** (SPA) | 182.6 kB | **69.0 kB** | 1.8× |
+| **React SPA** | 323.0 kB | **101.6 kB** | 2.6× |
+| **Next** (export) | 561.2 kB | **157.1 kB** | 4.1× |
 
 The two SPAs ship a single chunk, so first-load *is* the whole app. The two
-meta-frameworks code-split; the numbers above are the entry + home-page chunks
-they request on first paint.
+meta-frameworks code-split; the numbers above are the chunks the home route
+requests on first paint.
 
 ### Total client JS (all chunks, every route)
 
@@ -38,14 +41,17 @@ because it counts every route plus (for Next) the legacy polyfill chunk:
 
 | App | Raw | Gzip |
 |---|---:|---:|
-| Vue SPA | 100.1 kB | 38.1 kB |
-| Nuxt | 191.0 kB | 71.2 kB |
-| React SPA | 322.8 kB | 100.2 kB |
-| Next (webpack build) | 904.9 kB | 274.1 kB |
+| Vue SPA | 100.2 kB | 38.5 kB |
+| Nuxt (SPA) | 190.4 kB | 70.7 kB |
+| React SPA | 323.0 kB | 101.6 kB |
+| Next (export) | 690.4 kB | 200.9 kB (161.3 kB excl. legacy polyfills) |
 
-> Next's **default Turbopack** build totals **691 kB raw / 201 kB gzip**; the
-> webpack build (905/274) is shown because it emits complete vendor sourcemaps for
-> the breakdown below. First-load is the same ~127 kB gzip either way.
+> **SPA mode barely changes the meta-framework size.** Nuxt with `ssr:false` is
+> within ~1 kB of the SSR build — the Nuxt client runtime (hydration, payload
+> revival, plugins) ships either way; you only drop the server-rendered HTML, not
+> client weight. The per-package breakdown below is from a Next **webpack** build
+> (905 kB raw / 274 kB gz total) because it emits complete vendor sourcemaps; the
+> composition is the same as the deployed export.
 
 ## Per-app breakdown
 
@@ -76,7 +82,7 @@ pre-gzip bytes; share of mapped output). This is where the size actually goes.
 | @tanstack/react-query | 2.6 kB | 0.8% |
 | app code | 2.5 kB | 0.8% |
 
-### Nuxt — 191.0 kB raw (all chunks)
+### Nuxt — 190.4 kB raw (all chunks, SPA mode)
 
 | Package | Raw | Share | |
 |---|---:|---:|---|
@@ -138,7 +144,7 @@ browser never downloads those 113 kB.
 
 The scary **569 kB "next"** in the breakdown is *raw, uncompressed, summed across
 every chunk* — not what loads on a page. The honest number is the **First Load JS
-for `/`: ~435 kB raw → 127.5 kB gzip**, of which the bulk is React-DOM plus the
+for `/`: ~561 kB raw → 157 kB gzip**, of which the bulk is React-DOM plus the
 App Router client runtime (segment cache, prefetch, router reducer, RSC payload
 wiring). react-query and the app itself are a rounding error.
 
@@ -150,8 +156,8 @@ And yes — broadly, people accept it, because:
 - You're buying SSR/RSC/streaming/file-routing/image-opt, and most teams never
   measure the baseline.
 
-But it is a **real, frequently-voiced criticism**: it's **3.3× the Vue SPA** and
-**1.8× the Nuxt** first-load here, and lighter stacks (this Vue/Nuxt one, or
+But it is a **real, frequently-voiced criticism**: it's **4.1× the Vue SPA** and
+**2.3× the Nuxt** first-load here, and lighter stacks (this Vue/Nuxt one, or
 Solid/Qwik/Astro) exist substantially *because* of that React+Next floor.
 
 ## Optimistic updates + rollback
@@ -188,6 +194,15 @@ cd react-app && npm install && npm run dev     # http://localhost:5173
 cd nuxt-app  && npm install && npm run dev      # http://localhost:3000
 cd next-app  && npm install && npm run dev      # http://localhost:3000
 ```
+
+## Deployment
+
+All four are deployed as static files to GitHub Pages by
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) on every push to
+`main` → **https://dts.github.io/vue-vs-react/**. Each app is built under its own
+base path (`/vue-vs-react/{vue,react,nuxt,next}/`); the two Vite SPAs use a **hash
+router** so deep links survive a hard refresh on a static host, and the two
+meta-frameworks pre-render an HTML shell per route.
 
 ## Reproduce the measurements
 

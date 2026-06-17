@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
+  // set to e.g. /vue-vs-react/vue/ for GitHub Pages; '/' for local dev
+  base: process.env.DEPLOY_BASE || '/',
   plugins: [vue()],
   build: {
     sourcemap: true,

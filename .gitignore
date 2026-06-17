@@ -15,3 +15,5 @@ _probe.js
 .output/
 next-app/out/
 site/
+_serve/
+nuxt-app/dist
