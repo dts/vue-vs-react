@@ -17,3 +17,9 @@ next-app/out/
 site/
 _serve/
 nuxt-app/dist
+
+# svelte
+sveltekit-app/build/
+sveltekit-app/.svelte-kit/
+svelte-app/dist/
+preact-app/dist/
