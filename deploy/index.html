@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vue vs React — 4 TODO apps + bundle sizes</title>
+    <title>Vue vs React vs Svelte vs Preact — 7 TODO apps + bundle sizes</title>
     <style>
       :root { color-scheme: light dark; }
       body {
@@ -30,27 +30,33 @@
     </style>
   </head>
   <body>
-    <h1>Vue vs. React — 4 TODO apps</h1>
+    <h1>Vue vs. React vs. Svelte vs. Preact — 7 TODO apps</h1>
     <p class="sub">
       Identical stub TODO apps (list + detail, query, add-mutation, optimistic
       toggle&nbsp;+&nbsp;rollback). Same building blocks per side; only the stack differs.
     </p>
 
     <div class="apps">
+      <a class="app" href="./svelte/"><b>Svelte SPA →</b><span>svelte-spa-router · @tanstack/svelte-query · Vite 8</span></a>
       <a class="app" href="./vue/"><b>Vue SPA →</b><span>vue-router 5 · @dts/vue-uquery · Vite 8</span></a>
+      <a class="app" href="./preact/"><b>Preact SPA →</b><span>react-router 7 · react-query · preact/compat</span></a>
       <a class="app" href="./react/"><b>React SPA →</b><span>react-router 7 · @tanstack/react-query · Vite 8</span></a>
+      <a class="app" href="./sveltekit/"><b>SvelteKit →</b><span>SvelteKit (static) · @tanstack/svelte-query</span></a>
       <a class="app" href="./nuxt/"><b>Nuxt →</b><span>Nuxt 4 (SPA) · @dts/vue-uquery</span></a>
       <a class="app" href="./next/"><b>Next →</b><span>Next 16 (static export) · @tanstack/react-query</span></a>
     </div>
 
     <table>
       <caption>First Load JS for <code>/</code> — what a modern browser downloads (gzip)</caption>
-      <thead><tr><th>App</th><th>Raw</th><th>Gzip</th><th>vs Vue</th></tr></thead>
+      <thead><tr><th>App</th><th>Raw</th><th>Gzip</th><th>vs lightest</th></tr></thead>
       <tbody>
-        <tr><td>Vue SPA</td><td>100&nbsp;kB</td><td><b>38&nbsp;kB</b></td><td>1.0×</td></tr>
-        <tr><td>Nuxt (SPA)</td><td>183&nbsp;kB</td><td><b>69&nbsp;kB</b></td><td>1.8×</td></tr>
-        <tr><td>React SPA</td><td>323&nbsp;kB</td><td><b>102&nbsp;kB</b></td><td>2.6×</td></tr>
-        <tr><td>Next (export)</td><td>561&nbsp;kB</td><td><b>157&nbsp;kB</b></td><td>4.1×</td></tr>
+        <tr><td>Svelte SPA</td><td>86&nbsp;kB</td><td><b>29&nbsp;kB</b></td><td>1.0×</td></tr>
+        <tr><td>Vue SPA</td><td>100&nbsp;kB</td><td><b>38&nbsp;kB</b></td><td>1.3×</td></tr>
+        <tr><td>SvelteKit</td><td>116&nbsp;kB</td><td><b>40&nbsp;kB</b></td><td>1.4×</td></tr>
+        <tr><td>Preact SPA</td><td>154&nbsp;kB</td><td><b>50&nbsp;kB</b></td><td>1.7×</td></tr>
+        <tr><td>Nuxt (SPA)</td><td>183&nbsp;kB</td><td><b>69&nbsp;kB</b></td><td>2.3×</td></tr>
+        <tr><td>React SPA</td><td>323&nbsp;kB</td><td><b>102&nbsp;kB</b></td><td>3.5×</td></tr>
+        <tr><td>Next (export)</td><td>561&nbsp;kB</td><td><b>157&nbsp;kB</b></td><td>5.3×</td></tr>
       </tbody>
     </table>
 

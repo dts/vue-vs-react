@@ -19,7 +19,7 @@ function pkgOf(p) {
   if (/_N_E\/\.\/(app|lib|src|pages|components)\//.test(p)) return 'app code'
   if (/webpack\/(bootstrap|runtime)/.test(p) || (p.includes('webpack') && p.includes('runtime'))) return 'webpack runtime'
   if (p.includes('/.nuxt/') || p.includes('virtual:') || p.includes('nuxt')) return 'nuxt/app glue'
-  if (/\.(vue|jsx?|tsx?|mjs)$/.test(p)) return 'app code'
+  if (/\.(vue|jsx?|tsx?|mjs|svelte)$/.test(p)) return 'app code'
   return 'other: ' + p.split('/').slice(-1)[0]
 }
 

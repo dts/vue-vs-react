@@ -62,15 +62,46 @@ jobs:
           npm install
           npm run build
 
+      # --- Preact SPA (hash router, base /preact/) ---
+      - name: Build preact-app
+        working-directory: preact-app
+        env:
+          DEPLOY_BASE: /vue-vs-react/preact/
+          VITE_USE_HASH: '1'
+        run: |
+          npm install
+          npm run build
+
+      # --- Svelte SPA (hash router, base /svelte/) ---
+      - name: Build svelte-app
+        working-directory: svelte-app
+        env:
+          DEPLOY_BASE: /vue-vs-react/svelte/
+        run: |
+          npm install
+          npm run build
+
+      # --- SvelteKit (static / prerendered, base /sveltekit) ---
+      - name: Build sveltekit-app
+        working-directory: sveltekit-app
+        env:
+          BASE_PATH: /vue-vs-react/sveltekit
+        run: |
+          npm install
+          npm run build
+
       # --- Assemble combined site ---
       - name: Assemble site
         run: |
-          mkdir -p site/vue site/react site/nuxt site/next
+          mkdir -p site/vue site/react site/nuxt site/next site/preact site/svelte site/sveltekit
           cp deploy/index.html site/index.html
           cp -r vue-app/dist/.            site/vue/
           cp -r react-app/dist/.          site/react/
           cp -r nuxt-app/.output/public/. site/nuxt/
           cp -r next-app/out/.            site/next/
+          cp -r preact-app/dist/.         site/preact/
+          cp -r svelte-app/dist/.         site/svelte/
+          cp -r sveltekit-app/build/.     site/sveltekit/
           touch site/.nojekyll
 
       - uses: actions/configure-pages@v5

@@ -1,19 +1,24 @@
-# Vue vs. React — bundle-size comparison (SPA + meta-frameworks)
+# Vue vs. React vs. Svelte vs. Preact — bundle-size comparison
 
-Four functionally identical stub TODO apps (list view + detail view, a list query,
+Seven functionally identical stub TODO apps (list view + detail view, a list query,
 a detail query, an invalidating add-mutation, and an **optimistic toggle mutation
 with rollback**). Same building blocks on each side, so the only variable is the
 framework stack:
 
 | App | Routing | Data layer | Build |
 |---|---|---|---|
+| **svelte-app** | svelte-spa-router | @tanstack/svelte-query | Vite 8 |
 | **vue-app** | vue-router 5 | @dts/vue-uquery | Vite 8 (Rolldown/Oxc) |
+| **preact-app** | react-router 7 | @tanstack/react-query | Vite 8 + `preact/compat` |
 | **react-app** | react-router 7 | @tanstack/react-query | Vite 8 (Rolldown/Oxc) |
+| **sveltekit-app** | SvelteKit | @tanstack/svelte-query | SvelteKit — static (prerendered) |
 | **nuxt-app** | Nuxt (vue-router 5) | @dts/vue-uquery | Nuxt 4 — **SPA mode** (`ssr:false`) |
 | **next-app** | Next App Router | @tanstack/react-query | Next 16 — **static export** (`output:'export'`) |
 
-Both meta-frameworks run **client-side / SPA-style** here (no Node server), so all
-four are directly comparable and deploy as static files.
+All seven run **client-side** (no Node server) and deploy as static files. The
+Preact app is the React app *verbatim* — same react-router + react-query source —
+with `@preact/preset-vite` aliasing `react`/`react-dom` → `preact/compat`, so it
+isolates the cost of the runtime swap.
 
 > 🔗 **Live demo** (click around all four): https://dts.github.io/vue-vs-react/
 
@@ -23,16 +28,19 @@ What a **modern browser actually downloads** to render the home route (gzip; for
 the meta-frameworks this excludes the legacy `nomodule` polyfills and other route
 chunks):
 
-| App | Raw | Gzip | vs. Vue SPA |
+| App | Raw | Gzip | vs. lightest |
 |---|---:|---:|---:|
-| **Vue SPA** | 100.2 kB | **38.5 kB** | 1.0× |
-| **Nuxt** (SPA) | 182.6 kB | **69.0 kB** | 1.8× |
-| **React SPA** | 323.0 kB | **101.6 kB** | 2.6× |
-| **Next** (export) | 561.2 kB | **157.1 kB** | 4.1× |
+| **Svelte SPA** | 85.7 kB | **29.4 kB** | 1.0× |
+| **Vue SPA** | 100.2 kB | **38.5 kB** | 1.3× |
+| **SvelteKit** | 116.2 kB | **40.5 kB** | 1.4× |
+| **Preact SPA** | 154.4 kB | **50.4 kB** | 1.7× |
+| **Nuxt** (SPA) | 182.6 kB | **69.0 kB** | 2.3× |
+| **React SPA** | 323.0 kB | **101.6 kB** | 3.5× |
+| **Next** (export) | 561.2 kB | **157.1 kB** | 5.3× |
 
-The two SPAs ship a single chunk, so first-load *is* the whole app. The two
-meta-frameworks code-split; the numbers above are the chunks the home route
-requests on first paint.
+The pure SPAs ship a single chunk, so first-load *is* the whole app. The
+meta-frameworks code-split; their numbers are the chunks the home route requests
+on first paint.
 
 ### Total client JS (all chunks, every route)
 
@@ -41,7 +49,10 @@ because it counts every route plus (for Next) the legacy polyfill chunk:
 
 | App | Raw | Gzip |
 |---|---:|---:|
+| Svelte SPA | 85.7 kB | 29.4 kB |
 | Vue SPA | 100.2 kB | 38.5 kB |
+| SvelteKit | 119.4 kB | 41.9 kB |
+| Preact SPA | 154.4 kB | 50.4 kB |
 | Nuxt (SPA) | 190.4 kB | 70.7 kB |
 | React SPA | 323.0 kB | 101.6 kB |
 | Next (export) | 690.4 kB | 200.9 kB (161.3 kB excl. legacy polyfills) |
@@ -82,6 +93,41 @@ pre-gzip bytes; share of mapped output). This is where the size actually goes.
 | @tanstack/react-query | 2.6 kB | 0.8% |
 | app code | 2.5 kB | 0.8% |
 
+### Svelte SPA — 85.7 kB raw
+
+| Package | Raw | Share |
+|---|---:|---:|
+| svelte (runtime) | 42.4 kB | 49.8% |
+| @tanstack/query-core | 32.7 kB | 38.5% |
+| svelte-spa-router | 4.1 kB | 4.9% |
+| app code | 2.8 kB | 3.2% |
+| @tanstack/svelte-query | 2.6 kB | 3.1% |
+| regexparam | 0.4 kB | 0.5% |
+
+### Preact SPA — 154.4 kB raw
+
+The React app verbatim, on `preact/compat`. The 25 kB Preact runtime replaces
+~191 kB of `react-dom` + `react` + `scheduler` — but react-router (unchanged) is
+now 59% of the bundle:
+
+| Package | Raw | Share |
+|---|---:|---:|
+| react-router | 90.7 kB | 59.0% |
+| @tanstack/query-core | 32.8 kB | 21.3% |
+| **preact** (+ compat) | 25.5 kB | 16.6% |
+| @tanstack/react-query | 2.4 kB | 1.6% |
+| app code | 2.3 kB | 1.5% |
+
+### SvelteKit — 119.4 kB raw (all chunks, prerendered)
+
+| Package | Raw | Share | |
+|---|---:|---:|---|
+| svelte (runtime) | 47.4 kB | 40.6% | Vue/Svelte core |
+| @tanstack/query-core | 32.5 kB | 27.9% | data layer |
+| @sveltejs/kit (client) | 27.3 kB | 23.4% | meta-framework |
+| app code | 6.5 kB | 5.6% | |
+| @tanstack/svelte-query | 2.8 kB | 2.4% | |
+
 ### Nuxt — 190.4 kB raw (all chunks, SPA mode)
 
 | Package | Raw | Share | |
@@ -117,6 +163,24 @@ pre-gzip bytes; share of mapped output). This is where the size actually goes.
 | @tanstack/react-query | 0.3 kB | 0.0% | |
 
 ## FAQ from reading the numbers
+
+### "The data layer is the same everywhere — except Vue"
+
+`@tanstack/query-core` is a near-constant **~33 kB raw** in every React, Preact,
+and Svelte app (plus its thin per-framework adapter, ~2.5 kB). It's often the
+single biggest dependency after the framework runtime. `@dts/vue-uquery`, by
+contrast, is **6.6 kB** for the same query/mutation/optimistic-rollback surface —
+~5× smaller — which is most of why the Vue SPA undercuts the React/Preact ones at
+equivalent functionality.
+
+### "Why are Svelte and Preact so small?"
+
+Svelte compiles components to direct DOM operations, so there's no virtual-DOM
+runtime to ship — its 42 kB runtime + 33 kB query-core is the whole story.
+Preact's 25 kB runtime (incl. the `compat` shim) stands in for ~191 kB of
+`react-dom` + `react` + `scheduler` at near-full React compatibility — the React
+*app* runs unchanged on it. Note that in the Preact app **react-router becomes the
+biggest single piece (59%)**: once you drop react-dom, the router is the weight.
 
 ### "Why is Nuxt ~2× a plain Vue SPA?"
 
@@ -184,25 +248,35 @@ the API, not the feature:
 | @tanstack/react-query | 5.101.0 |
 | nuxt | 4.4.8 |
 | next | 16.2.9 |
+| svelte | 5.56.3 |
+| svelte-spa-router | 5.1.0 |
+| @tanstack/svelte-query | 6.1.34 |
+| @sveltejs/kit | 2.66.0 |
+| preact | 10.29.2 |
 | vite | 8.0.16 (SPAs) |
 
 ## Run any of the four apps locally
 
 ```bash
-cd vue-app   && npm install && npm run dev     # http://localhost:5173
-cd react-app && npm install && npm run dev     # http://localhost:5173
-cd nuxt-app  && npm install && npm run dev      # http://localhost:3000
-cd next-app  && npm install && npm run dev      # http://localhost:3000
+cd vue-app       && npm install && npm run dev   # Vite  → http://localhost:5173
+cd react-app     && npm install && npm run dev   # Vite  → http://localhost:5173
+cd preact-app    && npm install && npm run dev   # Vite  → http://localhost:5173
+cd svelte-app    && npm install && npm run dev   # Vite  → http://localhost:5173
+cd nuxt-app      && npm install && npm run dev    # Nuxt  → http://localhost:3000
+cd next-app      && npm install && npm run dev    # Next  → http://localhost:3000
+cd sveltekit-app && npm install && npm run dev   # Kit   → http://localhost:5173
 ```
 
 ## Deployment
 
-All four are deployed as static files to GitHub Pages by
+All seven are deployed as static files to GitHub Pages by
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) on every push to
 `main` → **https://dts.github.io/vue-vs-react/**. Each app is built under its own
-base path (`/vue-vs-react/{vue,react,nuxt,next}/`); the two Vite SPAs use a **hash
-router** so deep links survive a hard refresh on a static host, and the two
-meta-frameworks pre-render an HTML shell per route.
+base path (`/vue-vs-react/{vue,react,preact,svelte,nuxt,next,sveltekit}/`); the
+Vite SPAs use a **hash router** so deep links survive a hard refresh on a static
+host, and the meta-frameworks pre-render an HTML file per route. Every app was
+verified end-to-end in headless Chrome (renders the list, navigates to a detail
+page, no console errors) before deploy.
 
 ## Reproduce the measurements
 
