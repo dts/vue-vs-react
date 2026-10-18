@@ -1,12 +1,13 @@
 # Vue vs. React vs. Svelte vs. Preact — bundle-size comparison
 
-Seven functionally identical stub TODO apps (list view + detail view, a list query,
+Eight functionally identical stub TODO apps (list view + detail view, a list query,
 a detail query, an invalidating add-mutation, and an **optimistic toggle mutation
 with rollback**). Same building blocks on each side, so the only variable is the
 framework stack:
 
 | App | Routing | Data layer | Build |
 |---|---|---|---|
+| **svelte-uquery-app** | svelte-spa-router | **svelte-uquery** (native, ~2 kB) | Vite 8 |
 | **svelte-app** | svelte-spa-router | @tanstack/svelte-query | Vite 8 |
 | **vue-app** | vue-router 5 | @dts/vue-uquery | Vite 8 (Rolldown/Oxc) |
 | **preact-app** | react-router 7 | @tanstack/react-query | Vite 8 + `preact/compat` |
@@ -28,8 +29,9 @@ What a **modern browser actually downloads** to render the home route (gzip; for
 the meta-frameworks this excludes the legacy `nomodule` polyfills and other route
 chunks):
 
-| App | Raw | Gzip | vs. lightest |
+| App | Raw | Gzip | vs. Svelte SPA |
 |---|---:|---:|---:|
+| **Svelte + svelte-uquery** | 51.2 kB | **19.6 kB** | 0.67× |
 | **Svelte SPA** | 85.7 kB | **29.4 kB** | 1.0× |
 | **Vue SPA** | 100.2 kB | **38.5 kB** | 1.3× |
 | **SvelteKit** | 116.2 kB | **40.5 kB** | 1.4× |
@@ -49,6 +51,7 @@ because it counts every route plus (for Next) the legacy polyfill chunk:
 
 | App | Raw | Gzip |
 |---|---:|---:|
+| Svelte + svelte-uquery | 51.2 kB | 19.6 kB |
 | Svelte SPA | 85.7 kB | 29.4 kB |
 | Vue SPA | 100.2 kB | 38.5 kB |
 | SvelteKit | 119.4 kB | 41.9 kB |
@@ -92,6 +95,20 @@ pre-gzip bytes; share of mapped output). This is where the size actually goes.
 | scheduler | 3.5 kB | 1.1% |
 | @tanstack/react-query | 2.6 kB | 0.8% |
 | app code | 2.5 kB | 0.8% |
+
+### Svelte + svelte-uquery — 51.2 kB raw
+
+The Svelte app with a **native ~2 kB query lib** (see
+[Can you build vue-uquery for Svelte?](#can-you-build-vue-uquery-for-svelte))
+instead of TanStack. The 35 kB of `query-core` + adapter is gone; the runtime is
+now ~82% of the (much smaller) bundle:
+
+| Package | Raw | Share |
+|---|---:|---:|
+| svelte (runtime) | 41.5 kB | 82.2% |
+| app code (incl. **svelte-uquery ~1.7 kB**) | 4.5 kB | 8.8% |
+| svelte-spa-router | 4.1 kB | 8.2% |
+| regexparam | 0.4 kB | 0.8% |
 
 ### Svelte SPA — 85.7 kB raw
 
@@ -224,6 +241,42 @@ But it is a **real, frequently-voiced criticism**: it's **4.1× the Vue SPA** an
 **2.3× the Nuxt** first-load here, and lighter stacks (this Vue/Nuxt one, or
 Solid/Qwik/Astro) exist substantially *because* of that React+Next floor.
 
+## Can you build vue-uquery for Svelte?
+
+**Yes — and `svelte-uquery-app` is a working ~2 kB proof of it.** Svelte 5's runes
+cover every reactivity primitive `@dts/vue-uquery` leans on. The one structural
+difference: runes are *compile-time*, so the reactive core must live in
+`.svelte.js` / `.svelte.ts` modules (the consumer's Svelte compiler processes
+them) rather than plain runtime `.js` — exactly how `@tanstack/svelte-query` ships.
+
+| What vue-uquery needs | Vue primitive | Svelte 5 equivalent |
+|---|---|---|
+| Deep-reactive cache, mutate-in-place | `reactive()` (Proxy) | `$state()` — deep proxy, same semantics |
+| Reactive box / counter | `ref()` | `$state` field / `$state.raw` |
+| Derived `status` / `isLoading` | `computed` | `$derived` / `$derived.by` |
+| Reactive key argument | `MaybeRefOrGetter` + `toValue` | accessor fn `() => ({ key, fetcher })` |
+| Snapshot for optimistic **rollback** | snapshot of reactive | `$state.snapshot()` |
+| Client DI | `provide` / `inject` | `setContext` / `getContext` |
+| Effects outside a component | `effectScope` | `$effect.root` / `$effect.pre` |
+| Reactive `Map`/`Set` cache | `reactive(new Map())` | `SvelteMap` / `SvelteSet` (`svelte/reactivity`) |
+| Bridge a non-reactive source | (Proxy tracking) | `createSubscriber` (`svelte/reactivity`) |
+
+The optimistic-edit ergonomics map almost 1:1. vue-uquery hands `onMutate` a
+mutable `draft`; svelte-uquery's `patch(key, recipe)` snapshots with
+`$state.snapshot()`, then mutates the **live `$state` proxy in place** (views update
+reactively), returning a handle that `revert()`s on error — auto-rolled-back by
+`useMutation`, same as vue-uquery. See
+[`svelte-uquery-app/src/lib/uquery.svelte.js`](svelte-uquery-app/src/lib/uquery.svelte.js)
+(~120 lines).
+
+**Why it matters for size:** svelte-query (like react-query) wraps the
+framework-agnostic `@tanstack/query-core` (~33 kB). vue-uquery and this
+svelte-uquery are instead *native* micro-caches built directly on the framework's
+reactivity, so they're **~2–7 kB**. Swapping TanStack for the native lib drops the
+Svelte app from **29.4 → 19.6 kB gzip** — the smallest of all eight, and below
+even the Vue SPA. (The POC is minimal: query + mutation + optimistic rollback; no
+infinite query / retry / SSR-hydration yet.)
+
 ## Optimistic updates + rollback
 
 All toggle mutations are optimistic and roll back on failure — the difference is
@@ -258,21 +311,22 @@ the API, not the feature:
 ## Run any of the four apps locally
 
 ```bash
-cd vue-app       && npm install && npm run dev   # Vite  → http://localhost:5173
-cd react-app     && npm install && npm run dev   # Vite  → http://localhost:5173
-cd preact-app    && npm install && npm run dev   # Vite  → http://localhost:5173
-cd svelte-app    && npm install && npm run dev   # Vite  → http://localhost:5173
-cd nuxt-app      && npm install && npm run dev    # Nuxt  → http://localhost:3000
-cd next-app      && npm install && npm run dev    # Next  → http://localhost:3000
-cd sveltekit-app && npm install && npm run dev   # Kit   → http://localhost:5173
+cd vue-app          && npm install && npm run dev   # Vite  → http://localhost:5173
+cd react-app        && npm install && npm run dev   # Vite  → http://localhost:5173
+cd preact-app       && npm install && npm run dev   # Vite  → http://localhost:5173
+cd svelte-app       && npm install && npm run dev   # Vite  → http://localhost:5173
+cd svelte-uquery-app && npm install && npm run dev  # Vite  → http://localhost:5173
+cd nuxt-app         && npm install && npm run dev    # Nuxt  → http://localhost:3000
+cd next-app         && npm install && npm run dev    # Next  → http://localhost:3000
+cd sveltekit-app    && npm install && npm run dev   # Kit   → http://localhost:5173
 ```
 
 ## Deployment
 
-All seven are deployed as static files to GitHub Pages by
+All eight are deployed as static files to GitHub Pages by
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) on every push to
 `main` → **https://dts.github.io/vue-vs-react/**. Each app is built under its own
-base path (`/vue-vs-react/{vue,react,preact,svelte,nuxt,next,sveltekit}/`); the
+base path (`/vue-vs-react/{vue,react,preact,svelte,svelte-uquery,nuxt,next,sveltekit}/`); the
 Vite SPAs use a **hash router** so deep links survive a hard refresh on a static
 host, and the meta-frameworks pre-render an HTML file per route. Every app was
 verified end-to-end in headless Chrome (renders the list, navigates to a detail
