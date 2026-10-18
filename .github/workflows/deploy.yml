@@ -90,10 +90,19 @@ jobs:
           npm install
           npm run build
 
+      # --- Svelte + svelte-uquery (native query lib, base /svelte-uquery/) ---
+      - name: Build svelte-uquery-app
+        working-directory: svelte-uquery-app
+        env:
+          DEPLOY_BASE: /vue-vs-react/svelte-uquery/
+        run: |
+          npm install
+          npm run build
+
       # --- Assemble combined site ---
       - name: Assemble site
         run: |
-          mkdir -p site/vue site/react site/nuxt site/next site/preact site/svelte site/sveltekit
+          mkdir -p site/vue site/react site/nuxt site/next site/preact site/svelte site/sveltekit site/svelte-uquery
           cp deploy/index.html site/index.html
           cp -r vue-app/dist/.            site/vue/
           cp -r react-app/dist/.          site/react/
@@ -102,6 +111,7 @@ jobs:
           cp -r preact-app/dist/.         site/preact/
           cp -r svelte-app/dist/.         site/svelte/
           cp -r sveltekit-app/build/.     site/sveltekit/
+          cp -r svelte-uquery-app/dist/.  site/svelte-uquery/
           touch site/.nojekyll
 
       - uses: actions/configure-pages@v5
